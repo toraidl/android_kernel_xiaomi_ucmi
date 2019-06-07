@@ -830,14 +830,12 @@ static void crng_finalize_init(struct crng_state *crng)
 	kill_fasync(&fasync, SIGIO, POLL_IN);
 	pr_notice("crng init done\n");
 	if (unseeded_warning.missed) {
-		pr_notice("random: %d get_random_xx warning(s) missed "
-			  "due to ratelimiting\n",
+		pr_notice("%d get_random_xx warning(s) missed due to ratelimiting\n",
 			  unseeded_warning.missed);
 		unseeded_warning.missed = 0;
 	}
 	if (urandom_warning.missed) {
-		pr_notice("random: %d urandom warning(s) missed "
-			  "due to ratelimiting\n",
+		pr_notice("%d urandom warning(s) missed due to ratelimiting\n",
 			  urandom_warning.missed);
 		urandom_warning.missed = 0;
 	}
