@@ -1415,6 +1415,8 @@ static void snapshot_dtr(struct dm_target *ti)
 
 	mutex_destroy(&s->lock);
 
+	bio_uninit(&s->flush_bio);
+
 	dm_put_device(ti, s->cow);
 
 	dm_put_device(ti, s->origin);
