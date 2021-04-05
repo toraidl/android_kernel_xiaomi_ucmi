@@ -3588,16 +3588,38 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	 * membarrier after storing to rq->curr, before returning to
 	 * user-space.
 	 */
-	if (!mm) {
+	/*
+	 * kernel -> kernel   lazy + transfer active
+	 *   user -> kernel   lazy + mmgrab() active
+	 *
+	 * kernel ->   user   switch + mmdrop() active
+	 *   user ->   user   switch
+	 */
+	if (!mm) {						// to kernel
 		next->active_mm = oldmm;
-		mmgrab(oldmm);
 		enter_lazy_tlb(oldmm, next);
-	} else
-		switch_mm_irqs_off(oldmm, mm, next);
+		if (prev->mm)				// from user
+			mmgrab(oldmm);
+		else
+			prev->actve_mm = NULL;
+	} else {						// to user
+		/*
+		 * sys_membarrier() requires an smp_mb() between setting
+		 * rq->curr and returning to userspace.
+		 *
+		 * The below provides this either through switch_mm(), or in
+		 * case 'prev->active_mm == next->mm' through
+		 * finish_task_switch()'s mmdrop().
+		 */
 
-	if (!prev->mm) {
-		prev->active_mm = NULL;
-		rq->prev_mm = oldmm;
+		switch_mm_irqs_off(oldmm, mm, next);
+		lru_gen_switch_mm(prev->active_mm, next->mm);
+
+		if (!prev->mm) {                        // from kernel
+			/* will mmdrop() in finish_task_switch(). */
+			rq->prev_mm = prev->active_mm;
+			prev->active_mm = NULL;
+		}
 	}
 
 	rq->clock_update_flags &= ~(RQCF_ACT_SKIP|RQCF_REQ_SKIP);
@@ -6571,6 +6593,7 @@ void idle_task_exit(void)
 
 	if (mm != &init_mm) {
 		switch_mm(mm, &init_mm, current);
+		lru_gen_switch_mm(mm, &init_mm);
 		finish_arch_post_lock_switch();
 	}
 
