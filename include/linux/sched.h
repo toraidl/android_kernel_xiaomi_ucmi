@@ -1502,6 +1502,9 @@ struct task_struct {
 	/* Used by LSM modules for access restriction: */
 	void				*security;
 #endif
+#ifdef CONFIG_ANDROID_SIMPLE_LMK
+	struct task_struct		*simple_lmk_next;
+#endif
 
 #if IS_ENABLED(CONFIG_KPERFEVENTS)
 	/* lock to protect kperfevents */
