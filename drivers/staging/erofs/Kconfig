@@ -76,19 +76,17 @@ config EROFS_FS_ZIP
 
 	  If you don't want to enable compression feature, say N.
 
-config EROFS_FS_ZIP_LZMA
-	bool "EROFS LZMA compressed data support"
+config EROFS_FS_CLUSTER_PAGE_LIMIT
+	int "EROFS Cluster Pages Hard Limit"
 	depends on EROFS_FS_ZIP
-	select XZ_DEC
-	select XZ_DEC_MICROLZMA
+	range 1 256
+	default "1"
 	help
-	  Saying Y here includes support for reading EROFS file systems
-	  containing LZMA compressed data, specifically called microLZMA. it
-	  gives better compression ratios than the LZ4 algorithm, at the
-	  expense of more CPU overhead.
+	  Indicates maximum # of pages of a compressed
+	  physical cluster.
 
-	  LZMA support is an experimental feature for now and so most file
-	  systems will be readable without selecting this option.
-
-	  If unsure, say N.
+	  For example, if files in a image were compressed
+	  into 8k-unit, hard limit should not be configured
+	  less than 2. Otherwise, the image will be refused
+	  to mount on this kernel.
 
