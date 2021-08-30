@@ -74,7 +74,6 @@ struct erofs_sb_info {
 	/* inode slot unit size in bit shift */
 	unsigned char islotbits;
 
-	u32 sb_size;			/* total superblock size */
 	u32 build_time_nsec;
 	u64 build_time;
 
@@ -211,17 +210,6 @@ static inline erofs_off_t iloc(struct erofs_sb_info *sbi, erofs_nid_t nid)
 	return blknr_to_addr(sbi->meta_blkaddr) + (nid << sbi->islotbits);
 }
 
-#define EROFS_FEATURE_FUNCS(name, compat, feature) \
-static inline bool erofs_sb_has_##name(struct erofs_sb_info *sbi) \
-{ \
-	return sbi->feature_##compat & EROFS_FEATURE_##feature; \
-}
-
-EROFS_FEATURE_FUNCS(lz4_0padding, incompat, INCOMPAT_LZ4_0PADDING)
-EROFS_FEATURE_FUNCS(compr_cfgs, incompat, INCOMPAT_COMPR_CFGS)
-EROFS_FEATURE_FUNCS(big_pcluster, incompat, INCOMPAT_BIG_PCLUSTER)
-EROFS_FEATURE_FUNCS(sb_chksum, compat, COMPAT_SB_CHKSUM)
-
 /* atomic flag definitions */
 #define EROFS_I_EA_INITED_BIT	0
 #define EROFS_I_Z_INITED_BIT	1
@@ -293,7 +281,7 @@ extern const struct address_space_operations erofs_raw_access_aops;
 extern const struct address_space_operations z_erofs_aops;
 
 /*
- * Logical to physical block mapping
+ * Logical to physical block mapping, used by erofs_map_blocks()
  *
  * Different with other file systems, it is used for 2 access modes:
  *
@@ -335,7 +323,6 @@ struct erofs_map_blocks {
 	erofs_off_t m_pa, m_la;
 	u64 m_plen, m_llen;
 
-	char m_algorithmformat;
 	unsigned int m_flags;
 
 	struct page *mpage;

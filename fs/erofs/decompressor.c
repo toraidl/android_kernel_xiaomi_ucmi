@@ -67,6 +67,7 @@ static int z_erofs_lz4_prepare_destpages(struct z_erofs_decompress_req *rq,
 		}
 		kaddr = NULL;
 		__set_bit(j, bounced);
+
 		if (top) {
 			victim = availables[--top];
 			get_page(victim);
@@ -302,20 +303,24 @@ static int z_erofs_shifted_transform(const struct z_erofs_decompress_req *rq,
 		PAGE_ALIGN(rq->pageofs_out + rq->outputsize) >> PAGE_SHIFT;
 	const unsigned int righthalf = PAGE_SIZE - rq->pageofs_out;
 	unsigned char *src, *dst;
+
 	if (nrpages_out > 2) {
 		DBG_BUGON(1);
 		return -EIO;
 	}
+
 	if (rq->out[0] == *rq->in) {
 		DBG_BUGON(nrpages_out != 1);
 		return 0;
 	}
+
 	src = kmap_atomic(*rq->in);
 	if (rq->out[0]) {
 		dst = kmap_atomic(rq->out[0]);
 		memcpy(dst + rq->pageofs_out, src, righthalf);
 		kunmap_atomic(dst);
 	}
+
 	if (nrpages_out == 2) {
 		DBG_BUGON(!rq->out[1]);
 		if (rq->out[1] == *rq->in) {

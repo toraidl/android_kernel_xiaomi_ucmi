@@ -18,16 +18,8 @@
  * be incompatible with this kernel version.
  */
 #define EROFS_FEATURE_INCOMPAT_LZ4_0PADDING	0x00000001
-#define EROFS_FEATURE_INCOMPAT_COMPR_CFGS	0x00000002
-#define EROFS_FEATURE_INCOMPAT_BIG_PCLUSTER	0x00000002
-#define EROFS_FEATURE_INCOMPAT_CHUNKED_FILE	0x00000004
-#define EROFS_ALL_FEATURE_INCOMPAT		\
-	(EROFS_FEATURE_INCOMPAT_LZ4_0PADDING | \
-	 EROFS_FEATURE_INCOMPAT_COMPR_CFGS | \
-	 EROFS_FEATURE_INCOMPAT_BIG_PCLUSTER | \
-	 EROFS_FEATURE_INCOMPAT_CHUNKED_FILE)
-#define EROFS_SB_EXTSLOT_SIZE	16
- 
+#define EROFS_ALL_FEATURE_INCOMPAT		EROFS_FEATURE_INCOMPAT_LZ4_0PADDING
+
 /* 128-byte erofs on-disk super block */
 struct erofs_super_block {
 	__le32 magic;           /* file system magic number */
@@ -206,15 +198,6 @@ enum {
 	Z_EROFS_COMPRESSION_MAX
 };
 
-/* 14 bytes (+ length field = 16 bytes) */
-struct z_erofs_lzma_cfgs {
-	__le32 dict_size;
-	__le16 format;
-	u8 reserved[8];
-} __packed;
-
-#define Z_EROFS_LZMA_MAX_DICT_SIZE	(8 * Z_EROFS_PCLUSTER_MAX_SIZE)
-
 /*
  * bit 0 : COMPACTED_2B indexes (0 - off; 1 - on)
  *  e.g. for 4k logical cluster size,      4B        if compacted 2B is off;
@@ -250,22 +233,23 @@ struct z_erofs_map_header {
  *    2 - compressed cluster (for the other logical clusters)
  *
  * In detail,
- *    0 - literal (uncompressed) lcluster,
+ *    0 - literal (uncompressed) cluster,
  *        di_advise = 0
- *        di_clusterofs = the literal data offset of the lcluster
- *        di_blkaddr = the blkaddr of the literal pcluster
+ *        di_clusterofs = the literal data offset of the cluster
+ *        di_blkaddr = the blkaddr of the literal cluster
  *
- *    1,3 - compressed lcluster (for HEAD lclusters)
- *        di_advise = 1 or 3
- *        di_clusterofs = the decompressed data offset of the lcluster
- *        di_blkaddr = the blkaddr of the compressed pcluster
+ *    1 - compressed cluster (for the head logical cluster)
+ *        di_advise = 1
+ *        di_clusterofs = the decompressed data offset of the cluster
+ *        di_blkaddr = the blkaddr of the compressed cluster
  *
- *    2 - compressed lcluster (for NONHEAD lclusters)
+ *    2 - compressed cluster (for the other logical clusters)
  *        di_advise = 2
  *        di_clusterofs =
- *           the decompressed data offset in its own HEAD lcluster
- *        di_u.delta[0] = distance to this HEAD lcluster
- *        di_u.delta[1] = distance to the next HEAD lcluster
+ *           the decompressed data offset in its own head cluster
+ *        di_u.delta[0] = distance to its corresponding head cluster
+ *        di_u.delta[1] = distance to its corresponding tail cluster
+ *                (di_advise could be 0, 1 or 2)
  */
 enum {
 	Z_EROFS_VLE_CLUSTER_TYPE_PLAIN		= 0,
@@ -277,13 +261,6 @@ enum {
 
 #define Z_EROFS_VLE_DI_CLUSTER_TYPE_BITS        2
 #define Z_EROFS_VLE_DI_CLUSTER_TYPE_BIT         0
-
-/*
- * D0_CBLKCNT will be marked _only_ at the 1st non-head lcluster to store the
- * compressed block count of a compressed extent (in logical clusters, aka.
- * block count of a pcluster).
- */
-#define Z_EROFS_VLE_DI_D0_CBLKCNT		(1 << 11)
 
 struct z_erofs_vle_decompressed_index {
 	__le16 di_advise;

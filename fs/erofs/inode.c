@@ -124,7 +124,6 @@ static struct page *erofs_read_inode(struct inode *inode,
 			nblks = le32_to_cpu(die->i_u.compressed_blocks);
 
 		kfree(copied);
-		copied = NULL;
 		break;
 	case EROFS_INODE_LAYOUT_COMPACT:
 		vi->inode_isize = sizeof(struct erofs_inode_compact);
@@ -170,17 +169,6 @@ static struct page *erofs_read_inode(struct inode *inode,
 		goto err_out;
 	}
 
-	if (vi->datalayout == EROFS_INODE_CHUNK_BASED) {
-		if (vi->chunkformat & ~EROFS_CHUNK_FORMAT_ALL) {
-			erofs_err(inode->i_sb,
-				  "unsupported chunk format %x of nid %llu",
-				  vi->chunkformat, vi->nid);
-			err = -EOPNOTSUPP;
-			goto err_out;
-		}
-		vi->chunkbits = LOG_BLOCK_SIZE +
-			(vi->chunkformat & EROFS_CHUNK_FORMAT_BLKBITS_MASK);
-	}
 	inode->i_mtime.tv_sec = inode->i_ctime.tv_sec;
 	inode->i_atime.tv_sec = inode->i_ctime.tv_sec;
 	inode->i_mtime.tv_nsec = inode->i_ctime.tv_nsec;
