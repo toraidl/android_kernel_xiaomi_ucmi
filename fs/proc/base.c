@@ -2928,6 +2928,8 @@ static const struct file_operations proc_pid_set_sf_binder_task_operations = {
 	.release	= single_release,
 };
 #endif
+
+#if IS_ENABLED(CONFIG_MIHW)
 static int critical_task_show(struct seq_file *m, void *v)
 {
 	struct inode *inode = m->private;
@@ -3093,6 +3095,7 @@ static const struct file_operations proc_pid_set_top_app_operations = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
+#endif
 
 static struct dentry *proc_pident_instantiate(struct dentry *dentry,
 	struct task_struct *task, const void *ptr)

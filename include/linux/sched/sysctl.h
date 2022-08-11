@@ -29,7 +29,7 @@ extern unsigned int sysctl_sched_latency;
 extern unsigned int sysctl_sched_min_granularity;
 extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_cstate_aware;
-#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+#if IS_ENABLED(CONFIG_MIGT)
 extern unsigned int sysctl_boost_stask_to_big;
 #endif
 extern unsigned int sysctl_sched_wakeup_granularity;

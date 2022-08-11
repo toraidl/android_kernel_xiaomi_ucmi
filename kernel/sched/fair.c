@@ -610,7 +610,9 @@ static void update_min_vruntime(struct cfs_rq *cfs_rq)
 
 	/* ensure we never gain time by being placed backwards. */
 	cfs_rq->min_vruntime = max_vruntime(cfs_rq->min_vruntime, vruntime);
+#ifdef CONFIG_PERF_HUMANTASK
 	cfs_rq->min_vruntimex = min_vruntime(cfs_rq->min_vruntime, vruntime);
+#endif
 #ifndef CONFIG_64BIT
 	smp_wmb();
 	cfs_rq->min_vruntime_copy = cfs_rq->min_vruntime;
@@ -651,8 +653,10 @@ static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	struct rb_node *parent = NULL;
 	struct sched_entity *entry;
 	bool leftmost = true;
+#ifdef CONFIG_MIHW
 	int left = 0;
 	int right = 0;
+#endif
 #ifdef CONFIG_PERF_HUMANTASK
 	bool  speed = false;
 	struct task_struct *tsk = NULL;
