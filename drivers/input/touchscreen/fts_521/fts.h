@@ -4,7 +4,7 @@
  * FTS Capacitive touch screen controller (FingerTipS)
  *
  * Copyright (C) 2017, STMicroelectronics
- * Copyright (C) 2020 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: AMG(Analog Mems Group)
  *
  * 		marco.cali@st.com
@@ -39,6 +39,7 @@
 #include "fts_lib/ftsSoftware.h"
 #include "fts_lib/ftsHardware.h"
 #include <linux/completion.h>
+#include "../xiaomi/xiaomi_touch.h"
 /****************** CONFIGURATION SECTION ******************/
 /** @defgroup conf_section	 Driver Configuration Section
 * Settings of the driver code in order to suit the HW set up and the application behavior
@@ -166,6 +167,20 @@ do {\
 #define GRIP_MODE_DEBUG
 #define GRIP_RECT_NUM 12
 #define GRIP_PARAMETER_NUM 8
+#define GRIP_TYPE 3
+#define GRIP_POS 4
+enum charge_status {
+	NOT_CHARGING,
+	WIRED_CHARGING,
+	WIRELESS_CHARGING,
+};
+
+enum NON_UI_MODE {
+	NORMAL_MODE = 0,
+	POCKET_MODE,
+	POWEROFF_MODE,
+};
+
 struct fts_config_info {
 	u8 tp_vendor;
 	u8 tp_color;
@@ -221,6 +236,9 @@ struct fts_hw_platform_data {
 	u32 cornerzone_filter_hor2[4 * GRIP_PARAMETER_NUM];
 #endif
 	bool support_fod;
+	/*support dynamic scan-freq switch*/
+	bool support_dsf;
+	bool support_gameidle;
 };
 
 /*
@@ -394,6 +412,18 @@ struct fts_ts_info {
 	struct work_struct switch_mode_work;
 	struct work_struct grip_mode_work;
 	bool big_area_fod;
+	struct delayed_work power_supply_work;
+	int charging_status;
+	struct notifier_block power_supply_notifier;
+	bool probe_ok;
+	struct mutex charge_lock;
+	int fod_icon_status;
+	int nonui_status;
+	bool non_ui_poweroff;
+#ifdef CONFIG_TOUCHSCREEN_FOD
+	/*Flag: finger press fod area during unlock*/
+	bool fod_down;
+#endif
 };
 
 int fts_chip_powercycle(struct fts_ts_info *info);
@@ -402,7 +432,7 @@ extern int input_unregister_notifier_client(struct notifier_block *nb);
 
 extern int fts_proc_init(void);
 extern int fts_proc_remove(void);
-#ifdef CONFIG_FTS_FOD_AREA_REPORT
+#ifdef CONFIG_TOUCHSCREEN_FOD
 #define CENTER_X 540
 #define CENTER_Y 1910
 bool fts_is_infod(void);
