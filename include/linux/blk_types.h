@@ -199,7 +199,7 @@ struct bio {
 	};
 
 	unsigned short		bi_vcnt;	/* how many bio_vec's */
-#ifdef CONFIG_PERF_HUMANTASK
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
 	unsigned int            human_task;
 #endif
 

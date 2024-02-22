@@ -712,6 +712,7 @@ DEFINE_EVENT(sched_stat_runtime, sched_stat_runtime,
 	     TP_PROTO(struct task_struct *tsk, u64 runtime, u64 vruntime),
 	     TP_ARGS(tsk, runtime, vruntime));
 
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
 /* debug sched event of EAS for tracer: nop  */
 TRACE_EVENT(sched_debug_einfo,
 		TP_PROTO(struct task_struct *tsk,const char *  flag1,const char *  flag2,unsigned int param1, unsigned int param2,u64 se_vr, u64 en_vr,u64 cfq_min_vr),
@@ -749,7 +750,7 @@ TRACE_EVENT(sched_debug_einfo,
 				(unsigned long long)__entry->en_vr,
 				(unsigned long long)__entry->cfq_min_vr)
 		);
-
+#endif
 
 /*
  * Tracepoint for showing priority inheritance modifying a tasks

@@ -61,10 +61,14 @@ walt_dec_cfs_rq_stats(struct cfs_rq *cfs_rq, struct task_struct *p) {}
 
 #endif
 
+#if IS_ENABLED(CONFIG_MIHW)
 unsigned int super_big_cpu = 7;
+#endif
 
+#if IS_ENABLED(CONFIG_KPERFEVENTS)
 #include <linux/kperfevents.h>
 #include <trace/events/kperfevents_sched.h>
+#endif
 
 /*
  * Targeted preemption latency for CPU-bound tasks:
@@ -91,7 +95,10 @@ unsigned int sysctl_sched_sync_hint_enable = 1;
  * Enable/disable using cstate knowledge in idle sibling selection
  */
 unsigned int sysctl_sched_cstate_aware = 1;
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 unsigned int sysctl_boost_stask_to_big = 1;
+#endif
+
 /*
  * The initial- and re-scaling of tunables is configurable
  *
@@ -669,14 +676,18 @@ static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		 */
 		if (entity_before(se, entry)) {
 			link = &parent->rb_left;
+#if IS_ENABLED(CONFIG_MIHW)
 			left++;
+#endif
 		} else {
 			link = &parent->rb_right;
 			leftmost = false;
+#if IS_ENABLED(CONFIG_MIHW)
 			right++;
+#endif
 		}
 	}
-#ifdef CONFIG_PERF_HUMANTASK
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
 	if(speed){
 		//trace_sched_debug_einfo(tsk,"jumper left","right",left,right,se->vruntime,entry->vruntime,cfs_rq->min_vruntimex);
 		se->vruntime = entry ->vruntime  -1;
@@ -6949,6 +6960,19 @@ static int get_start_cpu(struct task_struct *p)
 		return start_cpu;
 	}
 
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+	if (game_super_task(p)) {
+		if (sysctl_boost_stask_to_big)
+			return rd->max_cap_orig_cpu;
+		return rd->mid_cap_orig_cpu;
+	}
+
+	if (game_vip_task(p))
+		return rd->mid_cap_orig_cpu;
+
+	if (fas_power_bias(p))
+		return rd->min_cap_orig_cpu;
+#endif
 
 	if (start_cpu == -1 || start_cpu == rd->max_cap_orig_cpu)
 		return start_cpu;
@@ -6970,7 +6994,9 @@ enum fastpaths {
 	NONE = 0,
 	SYNC_WAKEUP,
 	PREV_CPU_FASTPATH,
+#if IS_ENABLED(CONFIG_MIHW)
 	SCHED_BIG_TOP,
+#endif
 };
 
 static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
@@ -7002,8 +7028,13 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	int isolated_candidate = -1;
 	unsigned int target_nr_rtg_high_prio = UINT_MAX;
 	bool rtg_high_prio_task = task_rtg_high_prio(p);
+#if IS_ENABLED(CONFIG_MIHW)
 	struct root_domain *rd;
-
+#endif
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+	if (!prefer_idle)
+		prefer_idle = !!game_vip_task(p);
+#endif
 
 	/*
 	 * In most cases, target_capacity tracks capacity_orig of the most
@@ -7024,7 +7055,9 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
+#if IS_ENABLED(CONFIG_MIHW)
 	rd = cpu_rq(start_cpu)->rd;
+#endif
 	/* Find SD for the start CPU */
 	start_sd = rcu_dereference(per_cpu(sd_asym_cpucapacity, start_cpu));
 	if (!start_sd)
@@ -7076,10 +7109,16 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 			if (fbt_env->skip_cpu == i)
 				continue;
 
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
+			if (p->human_task > MAX_LEVER)
+				break;
+#endif
+#if IS_ENABLED(CONFIG_MIHW)
 			if (sched_boost_top_app() && rd->mid_cap_orig_cpu != -1 &&
 				((i < rd->mid_cap_orig_cpu && MAX_USER_RT_PRIO <= p->prio && p->prio < DEFAULT_PRIO) ||
 				(i >= rd->mid_cap_orig_cpu && p->prio > DEFAULT_PRIO)))
 				break;
+#endif
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -7372,6 +7411,21 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		 * iterate lower capacity CPUs unless the task can't be
 		 * accommodated in the higher capacity CPUs.
 		 */
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+		if (!sysctl_boost_stask_to_big) {
+			if (best_idle_cpu != -1) {
+				if (game_vip_task(p))
+					break;
+			} else if (target_cpu != -1 || best_active_cpu != -1) {
+				if (game_vip_task(p))
+					break;
+			}
+		} else {
+			if (game_vip_task(p) &&
+				(best_idle_cpu != -1 || target_cpu != -1 || best_active_cpu != -1))
+				break;
+		}
+#endif
 
 		if ((prefer_idle && best_idle_cpu != -1) ||
 		    (boosted && (best_idle_cpu != -1 || target_cpu != -1 ||
@@ -7911,6 +7965,9 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		delta = task_util(p);
 #endif
 	if (task_placement_boost_enabled(p) || fbt_env.need_idle || boosted || is_rtg || __cpu_overutilized(prev_cpu, delta) ||
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+	    game_vip_task(p) ||
+#endif
 	    !task_fits_max(p, prev_cpu) || cpu_isolated(prev_cpu)) {
 		best_energy_cpu = cpu;
 		goto unlock;
@@ -7970,7 +8027,7 @@ eas_not_ready:
 	return -1;
 }
 
-#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 static __inline__ void wake_render(struct task_struct *p)
 {
 	if (is_render_thread(p))
@@ -8022,7 +8079,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 #endif
 	if (static_branch_unlikely(&sched_energy_present)) {
 		rcu_read_lock();
-#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 		wake_render(p);
 #endif
 

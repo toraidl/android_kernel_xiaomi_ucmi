@@ -164,7 +164,7 @@ binder_alloc_get_free_async_space(struct binder_alloc *alloc)
 	return free_async_space;
 }
 
-//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 /**
  * binder_alloc_get_free_space() - get free space available
  * @alloc:      binder_alloc for this proc
@@ -172,7 +172,7 @@ binder_alloc_get_free_async_space(struct binder_alloc *alloc)
  * Return:      the bytes remaining in the address-space
 */
 size_t binder_alloc_get_free_space(struct binder_alloc *alloc);
-//END
+#endif
 
 unsigned long
 binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc,

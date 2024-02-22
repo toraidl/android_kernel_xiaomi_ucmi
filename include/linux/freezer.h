@@ -28,7 +28,7 @@ static inline bool frozen(struct task_struct *p)
 }
 
 extern bool freezing_slow_path(struct task_struct *p);
-#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+#if IS_ENABLED(CONFIG_MILLET) && IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 extern bool freezing_slow_path_millet(struct task_struct *p);
 #endif
 /*
@@ -41,7 +41,7 @@ static inline bool freezing(struct task_struct *p)
 	return freezing_slow_path(p);
 }
 
-#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+#if IS_ENABLED(CONFIG_MILLET) && IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 static inline bool freezing_millet(struct task_struct *p)
 {
         if (likely(!atomic_read(&system_freezing_cnt)))

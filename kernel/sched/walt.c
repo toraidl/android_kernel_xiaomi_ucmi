@@ -1439,6 +1439,7 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 	return (delta * rq->task_exec_scale) >> 10;
 }
 
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 u64 get_scale_exec_time(u64 delta, int cpu)
 {
 	return scale_exec_time(delta, cpu_rq(cpu));
@@ -1456,6 +1457,7 @@ void glk_update_util(struct rq *rq, unsigned int flags)
 	if (data)
 		data->func(data, sched_ktime_clock(), flags);
 }
+#endif
 
 /* Convert busy time to frequency equivalent
  * Assumes load is scaled to 1024
@@ -1816,6 +1818,21 @@ account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 	return __account_busy_for_task_demand(rq, p, event, SCHED_ACCOUNT_WAIT_TIME);
 }
 
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+static int
+account_pkg_busy_time(struct rq *rq, struct task_struct *p, int event)
+{
+	if (is_idle_task(p)) {
+		if (event == PICK_NEXT_TASK)
+			return 0;
+
+		return 1;
+	}
+
+	return __account_busy_for_task_demand(rq, p, event, false);
+}
+#endif
+
 unsigned int sysctl_sched_task_unfilter_period = 200000000;
 
 /*
@@ -2132,7 +2149,22 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
 
-
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+	if (pkg_enable()) {
+		int fstat = 0;
+		u64 delta = 0;
+		int pkg_task_busy = account_pkg_busy_time(rq, p, event);
+		if (pkg_task_busy) {
+			fstat |= PKG_TASK_BUSY;
+			if (is_idle_task(p))
+				delta = irqtime;
+			else
+				delta = wallclock - p->ravg.mark_start;
+			delta = scale_exec_time(delta, rq);
+			update_pkg_load(p, rq->cpu, fstat, wallclock, delta);
+		}
+	}
+#endif
 
 	if (exiting_task(p))
 		goto done;
@@ -3469,7 +3501,16 @@ void walt_irq_work(struct irq_work *irq_work)
 			if (is_asym_migration && cpumask_test_cpu(cpu,
 							&asym_cap_sibling_cpus))
 				flag |= SCHED_CPUFREQ_INTERCLUSTER_MIG;
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 
+			if ((!is_migration && !is_asym_migration)
+				&& glk_enable()) {
+				cpufreq_update_util(cpu_rq(cpu), flag |
+						SCHED_CPUFREQ_CONTINUE);
+				i++;
+				continue;
+			}
+#endif
 
 			if (i == num_cpus)
 				cpufreq_update_util(cpu_rq(cpu), flag);

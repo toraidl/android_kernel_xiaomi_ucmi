@@ -10,8 +10,8 @@
 #include <linux/syscalls.h>
 #include <linux/freezer.h>
 #include <linux/kthread.h>
-#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
-#include "../include/linux/millet.h"
+#if IS_ENABLED(CONFIG_MILLET) && IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+#include <linux/millet.h>
 #endif
 
 /* total number of freezing conditions in effect */
@@ -60,7 +60,7 @@ bool freezing_slow_path(struct task_struct *p)
 }
 EXPORT_SYMBOL(freezing_slow_path);
 
-#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+#if IS_ENABLED(CONFIG_MILLET) && IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 bool freezing_slow_path_millet(struct task_struct *p)
 {
 	if (p->flags & (PF_NOFREEZE | PF_SUSPEND_TASK))
@@ -100,7 +100,7 @@ bool __refrigerator(bool check_kthr_stop)
 
 		spin_lock_irq(&freezer_lock);
 		current->flags |= PF_FROZEN;
-#if defined(CONFIG_MILLET) && defined(CONFIG_PACKAGE_RUNTIME_INFO)
+#if IS_ENABLED(CONFIG_MILLET) && IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 		if (!freezing_millet(current) ||
 #else
 		if (!freezing(current) ||

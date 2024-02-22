@@ -16,11 +16,14 @@
  * boost is responsible for disabling it as well.
  */
 
-unsigned int mi_sched_boost;
 unsigned int sysctl_sched_boost; /* To/from userspace */
+#if IS_ENABLED(CONFIG_MIHW)
+unsigned int mi_sched_boost;
 unsigned int sysctl_sched_boost_top_app;
+#endif
 unsigned int sched_boost_type; /* currently activated sched boost */
 enum sched_boost_policy boost_policy;
+
 static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
 static DEFINE_MUTEX(boost_mutex);
 
@@ -57,17 +60,23 @@ static void set_boost_policy(int type)
 
 static bool verify_boost_params(int type)
 {
+#if IS_ENABLED(CONFIG_MIHW)
 	return type >= RESTRAINED_BOOST_DISABLE && type <= MI_BOOST;
+#else
+	return type >= RESTRAINED_BOOST_DISABLE && type <= RESTRAINED_BOOST;
+#endif
 }
 
 static void sched_no_boost_nop(void)
 {
 }
 
+#if IS_ENABLED(CONFIG_MIHW)
 static bool verify_boost_top_app_params(int type)
 {
 	return type >= 0;
 }
+#endif
 
 static void sched_full_throttle_boost_enter(void)
 {
@@ -214,13 +223,15 @@ static void sched_boost_disable_all(void)
 
 static void _sched_set_boost(int type)
 {
-
-	if (MI_BOOST == type) {
+#if IS_ENABLED(CONFIG_MIHW)
+	if (type == MI_BOOST) {
 		type = FULL_THROTTLE_BOOST;
 		mi_sched_boost = MI_BOOST;
-	}else if(FULL_THROTTLE_BOOST + type == NO_BOOST){
+	} else if (type == NO_BOOST + FULL_THROTTLE_BOOST) {
 		mi_sched_boost = NO_BOOST;
 	}
+#endif
+
 	if (type == 0)
 		sched_boost_disable_all();
 	else if (type > 0)
@@ -241,9 +252,12 @@ static void _sched_set_boost(int type)
 	trace_sched_set_boost(sysctl_sched_boost);
 }
 
-static void sched_set_boost_top_app(int type) {
+#if IS_ENABLED(CONFIG_MIHW)
+static void sched_set_boost_top_app(int type)
+{
 	sysctl_sched_boost_top_app = type;
 }
+#endif
 
 void sched_boost_parse_dt(void)
 {
@@ -299,6 +313,7 @@ done:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MIHW)
 int sched_boost_top_app_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos)
@@ -328,3 +343,4 @@ bool sched_boost_top_app(void)
 	bool res = sysctl_sched_boost_top_app > 0 &&  mi_sched_boost == MI_BOOST;
 	return  res;
 }
+#endif

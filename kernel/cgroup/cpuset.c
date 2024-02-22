@@ -63,6 +63,9 @@
 #include <linux/mutex.h>
 #include <linux/cgroup.h>
 #include <linux/wait.h>
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
+#include <linux/pkg_stat.h>
+#endif
 
 DEFINE_STATIC_KEY_FALSE(cpusets_pre_enable_key);
 DEFINE_STATIC_KEY_FALSE(cpusets_enabled_key);
@@ -2129,7 +2132,7 @@ static void cpuset_fork(struct task_struct *task)
 {
 	if (task_css_is_root(task, cpuset_cgrp_id))
 		return;
-#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 	if (current->pkg.migt.flag & MINOR_TASK)
 		set_cpus_allowed_ptr(task, &current->pkg.migt.cpus_allowed);
 	else
@@ -2478,6 +2481,7 @@ void cpuset_cpus_allowed(struct task_struct *tsk, struct cpumask *pmask)
 	spin_unlock_irqrestore(&callback_lock, flags);
 }
 
+#if IS_ENABLED(CONFIG_MIHW)
 /**
 *Allows the child process of the RT or other threads whose affinity has been
 *modified to inherit the affinity of its scheduling group.
@@ -2488,6 +2492,7 @@ void cpuset_cpus_allowed_mi(struct task_struct *tsk)
     sched_setaffinity(tsk->pid,task_cs(tsk)->cpus_allowed);
     rcu_read_unlock();
 }
+#endif
 
 /**
  * cpuset_cpus_allowed_fallback - final fallback before complete catastrophe.

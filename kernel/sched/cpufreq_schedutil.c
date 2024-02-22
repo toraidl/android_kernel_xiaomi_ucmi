@@ -272,7 +272,7 @@ static void sugov_deferred_update(struct sugov_policy *sg_policy, u64 time,
 	irq_work_queue(&sg_policy->irq_work);
 }
 
-#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 __weak unsigned int glk_freq_limit(struct cpufreq_policy *policy,
 		unsigned int *target_freq)
 {
@@ -313,13 +313,13 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 				  unsigned long util, unsigned long max)
 {
 	struct cpufreq_policy *policy = sg_policy->policy;
-#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 	unsigned int walt_freq;
 #endif
 	unsigned int freq = arch_scale_freq_invariant() ?
 				policy->cpuinfo.max_freq : policy->cur;
 
-#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 	walt_freq = map_util_freq(util, freq, max);
 	freq = glk_cal_freq(policy, util, max);
 	if (!freq)

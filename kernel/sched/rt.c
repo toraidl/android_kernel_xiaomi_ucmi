@@ -10,12 +10,16 @@
 #include <linux/interrupt.h>
 #include <trace/events/sched.h>
 
+#if IS_ENABLED(CONFIG_KPERFEVENTS)
 #include <trace/events/sched.h>
+#endif
 
 #include "walt.h"
 
+#if IS_ENABLED(CONFIG_KPERFEVENTS)
 #include <linux/kperfevents.h>
 #include <trace/events/kperfevents_sched.h>
+#endif
 
 int sched_rr_timeslice = RR_TIMESLICE;
 int sysctl_sched_rr_timeslice = (MSEC_PER_SEC / HZ) * RR_TIMESLICE;
