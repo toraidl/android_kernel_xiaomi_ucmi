@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -270,6 +271,8 @@ static void msm_geni_serial_set_manual_flow(bool enable,
 static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport);
 static int uart_line_id;
 
+static bool is_earlycon;
+
 #define GET_DEV_PORT(uport) \
 	container_of(uport, struct msm_geni_serial_port, uport)
 
@@ -319,7 +322,14 @@ static int msm_geni_serial_spinlocked(struct uart_port *uport)
 static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 {
 	unsigned int geni_m_irq_en, geni_s_irq_en;
-	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+	struct msm_geni_serial_port *port = NULL;
+
+	/*
+	 * Earlyconsole also uses this API and finds port is NULL,
+	 * hence add a protective check.
+	 */
+	if (!is_earlycon)
+		port = GET_DEV_PORT(uport);
 
 	geni_m_irq_en = geni_read_reg_nolog(uport->membase,
 						SE_GENI_M_IRQ_EN);
@@ -331,7 +341,7 @@ static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
 	geni_write_reg_nolog(geni_s_irq_en, uport->membase, SE_GENI_S_IRQ_EN);
-	if (port->xfer_mode == SE_DMA) {
+	if (port && port->xfer_mode == SE_DMA) {
 		geni_write_reg_nolog(DMA_TX_IRQ_BITS, uport->membase,
 							SE_DMA_TX_IRQ_EN_SET);
 		geni_write_reg_nolog(DMA_RX_IRQ_BITS, uport->membase,
@@ -2365,15 +2375,7 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	if (!uart_console(uport)) {
 		/* For now only assume FIFO mode. */
 		msm_port->xfer_mode = SE_DMA;
-		se_get_packing_config(8, 4, false, &cfg0, &cfg1);
-		geni_write_reg_nolog(cfg0, uport->membase,
-						SE_GENI_TX_PACKING_CFG0);
-		geni_write_reg_nolog(cfg1, uport->membase,
-						SE_GENI_TX_PACKING_CFG1);
-		geni_write_reg_nolog(cfg0, uport->membase,
-						SE_GENI_RX_PACKING_CFG0);
-		geni_write_reg_nolog(cfg1, uport->membase,
-						SE_GENI_RX_PACKING_CFG1);
+		se_config_packing(uport->membase, 8, 4, false);
 		if (!msm_port->rx_fifo) {
 			ret = -ENOMEM;
 			goto exit_portsetup;
@@ -2531,6 +2533,8 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 							SE_UART_RX_WORD_LEN);
 	geni_write_reg_nolog(stop_bit_len, uport->membase,
 						SE_UART_TX_STOP_BIT_LEN);
+	if (!uart_console(uport))
+		se_config_packing(uport->membase, bits_per_char, 4, false);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
 	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
@@ -2963,6 +2967,7 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	unsigned long clk_rate;
 	unsigned long cfg0, cfg1;
 
+	is_earlycon = true;
 	if (!uport->membase) {
 		ret = -ENOMEM;
 		goto exit_geni_serial_earlyconsetup;
@@ -3600,6 +3605,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if (!uart_console(uport))
 		spin_lock_init(&dev_port->rx_lock);
 
+	/*
+	 * Earlyconsole to kernel console will switch happen after
+	 * uart_add_one_port. Hence marking is_earlycon to false here.
+	 */
+	if (is_console)
+		is_earlycon = false;
+
 	IPC_LOG_MSG(dev_port->ipc_log_misc, "%s: port:%s irq:%d\n", __func__,
 		    uport->name, uport->irq);
 
@@ -3624,6 +3636,7 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 
 	if (!uart_console(&port->uport)) {
 		wakeup_source_unregister(port->geni_wake);
+		port->geni_wake = NULL;
 		flush_workqueue(port->qwork);
 		destroy_workqueue(port->qwork);
 	}

@@ -47,6 +47,10 @@
 #include "debug.h"
 #include "xhci.h"
 
+static bool bc12_compliance;
+module_param(bc12_compliance, bool, 0644);
+MODULE_PARM_DESC(bc12_compliance, "Disable sending dp pulse for CDP");
+
 #define SDP_CONNETION_CHECK_TIME 10000 /* in ms */
 
 /* time out to wait for USB cable status notification (in ms)*/
@@ -342,6 +346,7 @@ struct dwc3_msm {
 	u32			num_gsi_event_buffers;
 	struct dwc3_event_buffer **gsi_ev_buff;
 	int pm_qos_latency;
+	bool			perf_mode;
 	struct pm_qos_request pm_qos_req_dma;
 	struct delayed_work perf_vote_work;
 	struct delayed_work sdp_check;
@@ -2015,6 +2020,24 @@ static void dwc3_gsi_event_buf_alloc(struct dwc3 *dwc)
 	}
 }
 
+static void dwc3_msm_modify_pipectl(struct dwc3 *dwc, bool set)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	u32 reg;
+
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(0));
+
+	if (set) {
+		if ((dwc->speed != DWC3_DSTS_SUPERSPEED) &&
+			(dwc->speed != DWC3_DSTS_SUPERSPEED_PLUS))
+			reg |= DWC3_GUSB3PIPECTL_SUSPHY;
+	} else {
+		reg &= ~(DWC3_GUSB3PIPECTL_SUSPHY);
+	}
+
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0), reg);
+}
+
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 							unsigned int value)
 {
@@ -2027,8 +2050,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 	switch (event) {
 	case DWC3_CONTROLLER_ERROR_EVENT:
 		dev_info(mdwc->dev,
-			"DWC3_CONTROLLER_ERROR_EVENT received, irq cnt %lu\n",
-			dwc->irq_cnt);
+			"DWC3_CONTROLLER_ERROR_EVENT received\n");
 
 		dwc3_gadget_disable_irq(dwc);
 
@@ -2081,6 +2103,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
+
+		dwc3_msm_modify_pipectl(dwc, true);
+
 		/*
 		 * Add power event if the dbm indicates coming out of L1 by
 		 * interrupt
@@ -2205,6 +2230,13 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event,
 		break;
 	case DWC3_CONTROLLER_NOTIFY_CLEAR_DB:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_CLEAR_DB\n");
+
+		/*
+		 * Clear the susphy bit here to ensure it is not set during
+		 * the course of controller initialisation process.
+		 */
+		dwc3_msm_modify_pipectl(dwc, false);
+
 		if (!mdwc->gsi_ev_buff)
 			break;
 
@@ -2277,15 +2309,6 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 		dev_err(mdwc->dev, "%s: dwc3_core init failed (%d)\n",
 							__func__, ret);
 
-	/* Get initial P3 status and enable IN_P3 event */
-	if (dwc3_is_usb31(dwc))
-		val = dwc3_msm_read_reg_field(mdwc->base,
-			DWC31_LINK_GDBGLTSSM,
-			DWC3_GDBGLTSSM_LINKSTATE_MASK);
-	else
-		val = dwc3_msm_read_reg_field(mdwc->base,
-			DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
-	atomic_set(&mdwc->in_p3, val == DWC3_LINK_STATE_U3);
 	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
 				PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
 
@@ -2578,7 +2601,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 		dbg_event(0xFF, "pend evt", 0);
 
 	/* disable power event irq, hs and ss phy irq is used as wake up src */
-	disable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
+	disable_irq_nosync(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 
 	dwc3_set_phy_speed_flags(mdwc);
 	/* Suspend HS PHY */
@@ -3356,7 +3379,8 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	 * and only when the vbus connect event is a valid one.
 	 */
 	if (get_psy_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
-			mdwc->vbus_active && !mdwc->check_eud_state) {
+			mdwc->vbus_active &&
+				!mdwc->check_eud_state && !bc12_compliance) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
 		usb_phy_drive_dp_pulse(mdwc->hs_phy, DP_PULSE_WIDTH_MSEC);
 	}
@@ -4148,6 +4172,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	}
 
 	cancel_delayed_work_sync(&mdwc->perf_vote_work);
+	msm_dwc3_perf_vote_update(mdwc, false);
 	cancel_delayed_work_sync(&mdwc->sm_work);
 
 	if (mdwc->hs_phy)
@@ -4242,10 +4267,12 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 
 static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
 {
-	static bool curr_perf_mode;
 	int latency = mdwc->pm_qos_latency;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	if ((curr_perf_mode == perf_mode) || !latency)
+	dwc->irq_cnt = 0;
+
+	if ((mdwc->perf_mode == perf_mode) || !latency)
 		return;
 
 	if (perf_mode)
@@ -4254,7 +4281,7 @@ static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
 		pm_qos_update_request(&mdwc->pm_qos_req_dma,
 						PM_QOS_DEFAULT_VALUE);
 
-	curr_perf_mode = perf_mode;
+	mdwc->perf_mode = perf_mode;
 	pr_debug("%s: latency updated to: %d\n", __func__,
 			perf_mode ? latency : PM_QOS_DEFAULT_VALUE);
 }
@@ -4264,16 +4291,14 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						perf_vote_work.work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	static unsigned long	last_irq_cnt;
 	bool in_perf_mode = false;
 
-	if (dwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
+	if (dwc->irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
 
 	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
-		 __func__, in_perf_mode, (dwc->irq_cnt - last_irq_cnt));
+		 __func__, in_perf_mode, dwc->irq_cnt);
 
-	last_irq_cnt = dwc->irq_cnt;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
 	schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));

@@ -652,6 +652,7 @@ config GPIO_TESTING_MODE
 	default n
 	help
 	  Enable driver for a simple testing mode detection
+
 config MI_GAMEKEY
 	tristate "xiaomi physical game key"
 	default n
@@ -663,6 +664,15 @@ config MMHARDWARE_OTHER_DETECTION
 	default n
 	help
 	  This adds support for mmhardware detection
+	  
+config KINECTICS_XR_NORDIC
+	tristate "Nordic Misc driver support in XR Reference devices"
+	help
+	  This driver supports Nordic Chip in XR Reference devices.
+	  This driver interfaces with SoC to Nordic chip over SPI and contains
+	  code to power up the Nordic chip and initializes SPI interface. Also,
+	  this also parses the gpios and interrupts from device tree and sets
+	  the gpios and interrupt handler for handling the interrupt.
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
