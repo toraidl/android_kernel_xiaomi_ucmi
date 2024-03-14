@@ -1341,8 +1341,15 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 				 &dwc->fladj);
 	dwc->enable_bus_suspend = device_property_read_bool(dev,
 					"snps,bus-suspend-enable");
-	dwc->usb3_u1u2_disable = device_property_read_bool(dev,
-					"snps,usb3-u1u2-disable");
+#if IS_ENABLED(CONFIG_BOARD_PIPA) 
+	dwc->close_u1u2_function = device_property_read_bool(dev,
+					"snps,close-u1u2-function");
+	dev_err(dev, "dwc->close_u1u2_function=%d\n", dwc->close_u1u2_function);
+	if (!dwc->close_u1u2_function)
+#endif
+		dwc->usb3_u1u2_disable = device_property_read_bool(dev,
+						"snps,usb3-u1u2-disable");
+
 	dwc->disable_clk_gating = device_property_read_bool(dev,
 					"snps,disable-clk-gating");
 
@@ -1922,7 +1929,7 @@ static int dwc3_resume(struct device *dev)
 		 * which is now out of LPM. This allows runtime_suspend later.
 		 */
 		if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
-		    dwc->host_poweroff_in_pm_suspend)
+		    dwc->ignore_wakeup_src_in_hostmode)
 			goto runtime_set_active;
 
 		return 0;

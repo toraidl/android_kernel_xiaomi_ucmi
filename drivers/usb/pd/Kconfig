@@ -58,5 +58,13 @@ config PS5169
 	help
 		Say Y to support PS5169 for USB3.2.
 		PS5169 is a enhanced signal driver.
+ 
+ config NO_PS_USB3
+	tristate "Disable PS5169"
+	depends on I2C
+	help
+		Say Y to remove PS5169 for USB3.2.
+		PS5169 is a enhanced signal driver.
+
 
 endmenu
