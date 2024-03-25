@@ -844,7 +844,6 @@ static int _disp_log_stats_v2(struct tzdbg_log_v2_t *log,
 						debug_rw_buf_size);
 
 	}
-	}
 
 	max_len = (count > debug_rw_buf_size) ? debug_rw_buf_size : count;
 
