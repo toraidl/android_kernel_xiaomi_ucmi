@@ -2453,13 +2453,12 @@ struct ffc_smooth ffc_dischg_smooth[FFC_SMOOTH_LEN] = {
 	{600,   72000},
 	{1000,  50000},
 };
-
 struct LowSoc_HighVolt_Smooth{
 	int volt_lim;
 	int time;
 };
 
-struct LowSoc_HighVolt_Smooth lowsoc_highvolt_smooth[SMOOTH_VOLT_LEN] = {
+static struct LowSoc_HighVolt_Smooth lowsoc_highvolt_smooth[SMOOTH_VOLT_LEN] = {
 	{0,    10000},
 	{3400, 30000},
 	{3500, 45000},
