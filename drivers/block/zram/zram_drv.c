@@ -1425,9 +1425,10 @@ static int __zram_bvec_write(struct zram *zram, struct bio_vec *bvec,
 	u32 checksum;
 	unsigned long element = 0;
 	enum zram_pageflags flags = 0;
+#ifdef CONFIG_MEMCG
 	struct mem_cgroup *memcg = page_memcg(page);
 	unsigned long soft_limit;
-
+#endif
 	mem = kmap_atomic(page);
 	if (page_same_filled(mem, &element)) {
 		kunmap_atomic(mem);
@@ -1534,7 +1535,7 @@ out:
 		zram_set_entry(zram, index, entry);
 		zram_set_obj_size(zram, index, comp_len);
 	}
-
+#ifdef CONFIG_MEMCG
 	if (memcg != NULL) {
 		soft_limit = READ_ONCE(memcg->soft_limit);
 		if (soft_limit == MAGIC_NEMBER) {
@@ -1543,7 +1544,7 @@ out:
 			atomic64_add(comp_len, &zram->stats.important_compr_data_size);
 		}
 	}
-
+#endif
 	zram_slot_unlock(zram, index);
 
 	/* Update stats */
