@@ -1178,7 +1178,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 				      struct scan_control *sc,
 				      enum ttu_flags ttu_flags,
 				      struct reclaim_stat *stat,
-				      bool force_reclaim)
+				      bool skip_reference_check)
 {
 	LIST_HEAD(ret_pages);
 	LIST_HEAD(free_pages);
@@ -1338,7 +1338,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 			}
 		}
 
-		if (!force_reclaim)
+		if (!skip_reference_check)
 			references = page_check_references(page, sc);
 
 		switch (references) {
@@ -1642,8 +1642,6 @@ unsigned long reclaim_pages_from_list(struct list_head *page_list,
 		.target_vma = vma,
 	};
 
-	unsigned long nr_reclaimed;
-	struct page *page;
 
 	list_for_each_entry(page, page_list, lru)
 		ClearPageActive(page);

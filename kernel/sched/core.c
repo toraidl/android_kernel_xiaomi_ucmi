@@ -3601,7 +3601,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 		if (prev->mm)				// from user
 			mmgrab(oldmm);
 		else
-			prev->actve_mm = NULL;
+			prev->active_mm = NULL;
 	} else {						// to user
 		/*
 		 * sys_membarrier() requires an smp_mb() between setting
