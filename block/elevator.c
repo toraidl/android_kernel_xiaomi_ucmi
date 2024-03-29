@@ -1007,10 +1007,6 @@ int elevator_init_mq(struct request_queue *q)
 		e = elevator_get(q, "bfq", false);
 		if (!e)
 			goto out;
-	} else {if (IS_ENABLED(CONFIG_IOSCHED_BFQ)) {
-		e = elevator_get(q, "bfq", false);
-		if (!e)
-			goto out;
 	} else {
 		e = elevator_get(q, "mq-deadline", false);
 		if (!e)
