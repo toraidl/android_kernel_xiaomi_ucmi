@@ -88,3 +88,4 @@ obj-$(CONFIG_MI_GAMEKEY)        += mi_gamekey.o
 
 obj-y                           += qrc/
 obj-$(CONFIG_MMHARDWARE_OTHER_DETECTION) += mmhardware_others.o
+obj-$(CONFIG_KINECTICS_XR_NORDIC) += kxrctrl/
