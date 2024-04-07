@@ -31,7 +31,7 @@ export BUILD
 cd "$KERNEL_TOP" || exit
 
 # These values must be changed for forks!
-KERNEL_DEFCONFIG_URL="https://github.com/toraidl/InfiniR_kernel_ucmi.git"
+KERNEL_DEFCONFIG_URL="https://github.com/toraidl/android_kernel_xiaomi_ucmi.git"
 KERNEL_DEFCONFIG_HEAD=$(git -C ${KERNEL_CFG} rev-parse HEAD)
 
 SOC="kona"
