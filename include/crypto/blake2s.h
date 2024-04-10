@@ -99,4 +99,7 @@ static inline void blake2s(u8 *out, const u8 *in, const u8 *key,
 	blake2s_final(&state, out);
 }
 
-#endif /* _CRYPTO_BLAKE2S_H */
+void blake2s256_hmac(u8 *out, const u8 *in, const u8 *key, const size_t inlen,
+		     const size_t keylen);
+
+#endif /* BLAKE2S_H */
