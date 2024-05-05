@@ -4,7 +4,7 @@
 LINKER="lld"
 DIR=`readlink -f .`
 MAIN=`readlink -f ${DIR}/..`
-KERNEL_DEFCONFIG=umi_user_defconfig
+KERNEL_DEFCONFIG=ucmi_defconfig
 
 if [ ! -d "$MAIN/clang" ]; then
 	mkdir "$MAIN/clang"
