@@ -13,7 +13,7 @@
 #include <linux/kdev_t.h>
 #include <linux/errseq.h>
 
-
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
 TRACE_EVENT(filemap_debug_einfo,
 		TP_PROTO(struct page *page,struct task_struct *curr,const char *  flag1,unsigned int value1),
 		TP_ARGS(page,curr,flag1,value1),
@@ -39,7 +39,7 @@ TRACE_EVENT(filemap_debug_einfo,
 		TP_printk("humantask comm=%s tgid = %d pid=%d,  %s=%d, kworker=%d",
 				__entry->comm, __entry->tgid,__entry->pid,__entry->flag1,__entry->value1,__entry->kworker)
 		);
-
+#endif
 
 DECLARE_EVENT_CLASS(mm_filemap_op_page_cache,
 

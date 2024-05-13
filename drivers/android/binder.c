@@ -71,8 +71,12 @@
 #include <linux/security.h>
 #include <linux/spinlock.h>
 #include <linux/ratelimit.h>
+#if IS_ENABLED(CONFIG_MILLET)
 #include <linux/millet.h>
+#endif
+#ifdef CONFIG_TASK_DELAY_ACCT
 #include <linux/delayacct.h>
+#endif
 
 #include <asm/cacheflush.h>
 
@@ -80,9 +84,9 @@
 #include "binder_internal.h"
 #include "binder_trace.h"
 
-//MIUI ADD:
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 #include "linux/trace_clock.h"
-//END
+#endif
 
 #ifdef CONFIG_MI_SCHED
 extern void mi_binder_restore_vip_hook(struct binder_transaction *in_reply_to, struct task_struct *task);
@@ -101,18 +105,18 @@ static DEFINE_SPINLOCK(binder_dead_nodes_lock);
 
 static struct dentry *binder_debugfs_dir_entry_root;
 static struct dentry *binder_debugfs_dir_entry_proc;
-//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 static struct dentry *binder_debugfs_dir_entry_proc_transaction;
-//END
+#endif
 static atomic_t binder_last_id;
 
 static int proc_show(struct seq_file *m, void *unused);
 DEFINE_SHOW_ATTRIBUTE(proc);
 
-//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 static int proc_transaction_show(struct seq_file *m, void *unused);
 DEFINE_SHOW_ATTRIBUTE(proc_transaction);
-//END
+#endif
 
 /* This is only defined in include/asm-arm/sizes.h */
 #ifndef SZ_1K
@@ -847,11 +851,15 @@ static void binder_transaction_priority(struct task_struct *task,
 	t->saved_priority.prio = task->normal_prio;
 
 	if (!inherit_rt && is_rt_policy(desired_prio.sched_policy)) {
+#if IS_ENABLED(CONFIG_MIHW)
 		// MIUI MOD:
 		// We boost some app process to FIFO, but binder out thread
 		// from fifo has low priority, so we modify priority higher.
 		// desired_prio.prio = NICE_TO_PRIO(0);
 		desired_prio.prio = NICE_TO_PRIO(-10);
+#else
+		desired_prio.prio = NICE_TO_PRIO(0);
+#endif
 		desired_prio.sched_policy = SCHED_NORMAL;
 	}
 
@@ -2462,7 +2470,7 @@ static int binder_fixup_parent(struct binder_transaction *t,
 	return 0;
 }
 
-#ifdef CONFIG_BINDER_OPT
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 static inline void binder_thread_set_inherit_top_app(
 		struct binder_thread *thread, struct binder_thread *from)
 {
@@ -2516,6 +2524,9 @@ static bool binder_proc_transaction(struct binder_transaction *t,
 	struct binder_priority node_prio;
 	bool oneway = !!(t->flags & TF_ONE_WAY);
 	bool pending_async = false;
+#if IS_ENABLED(CONFIG_PERF_HUMANASK)
+	int task_pri = 0;
+#endif
 
 	BUG_ON(!node);
 	binder_node_lock(node);
@@ -2543,9 +2554,22 @@ static bool binder_proc_transaction(struct binder_transaction *t,
 		thread = binder_select_thread_ilocked(proc);
 
 	if (thread) {
-	    if (!oneway) {
+#if IS_ENABLED(CONFIG_PERF_HUMANASK)
+		if (t->from && t->from->task)
+			task_pri = t->from->task->human_task;
+
+		if (!oneway && task_pri && task_pri <=4 ) {
+			if (thread->task && !t->from->task->inherit_task) {
+				thread->task->human_task++;
+				thread->task->inherit_task = 1;
+			}
+		}
+#endif
+
+#if IS_ENABLED(CONFIG_BINDER_OPT)
+		if (!oneway)
     			binder_thread_set_inherit_top_app(thread, t->from);
-    	}
+#endif
 		binder_transaction_priority(thread->task, t, node_prio,
 					    node->inherit_rt);
 		binder_enqueue_thread_work_ilocked(thread, &t->work);
@@ -2606,12 +2630,12 @@ static struct binder_node *binder_get_node_refs_for_txn(
 	return target_node;
 }
 
-//MIUI ADD:
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 static inline u64 binder_clock(void)
 {
 	return trace_clock_local();
 }
-//END
+#endif
 
 static void binder_transaction(struct binder_proc *proc,
 			       struct binder_thread *thread,
@@ -2704,7 +2728,7 @@ static void binder_transaction(struct binder_proc *proc,
 		target_proc = target_thread->proc;
 		target_proc->tmp_ref++;
 		binder_inner_proc_unlock(target_thread->proc);
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 		if (target_proc
 			&& target_proc->tsk
 			&& (task_uid(target_proc->tsk).val <= frozen_uid_min)) {
@@ -2772,7 +2796,7 @@ static void binder_transaction(struct binder_proc *proc,
 			goto err_dead_binder;
 		}
 		e->to_node = target_node->debug_id;
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 		if (target_proc
 			&& target_proc->tsk
 			&& (task_uid(target_proc->tsk).val > 10000)
@@ -2908,14 +2932,18 @@ static void binder_transaction(struct binder_proc *proc,
 	*/
 	if (!reply && !(tr->flags & TF_ONE_WAY)) {
 		t->from = thread;
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 		t->async_from_pid = -1;
 		t->async_from_tid = -1;
+#endif
 	} else {
 		t->from = NULL;
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 		t->async_from_pid = thread->proc->pid;
 		t->async_from_tid = thread->pid;
+#endif
 	}
-	//END
+
 	t->sender_euid = task_euid(proc->tsk);
 	t->to_proc = target_proc;
 	t->to_thread = target_thread;
@@ -3236,21 +3264,29 @@ static void binder_transaction(struct binder_proc *proc,
 			goto err_dead_proc_or_thread;
 		}
 		BUG_ON(t->buffer->async_transaction != 0);
-		//MIUI ADD:
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 		t->timesRecord = in_reply_to->timesRecord;
-		//END
+#endif
 		binder_pop_transaction_ilocked(target_thread, in_reply_to);
 		binder_enqueue_thread_work_ilocked(target_thread, &t->work);
 		binder_inner_proc_unlock(target_proc);
 
 		wake_up_interruptible_sync(&target_thread->wait);
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 		binder_thread_restore_inherit_top_app(thread);
+#endif
 #ifdef CONFIG_MI_SCHED
 		mi_binder_restore_vip_hook(in_reply_to, current);
 #endif
 
 		binder_restore_priority(current, in_reply_to->saved_priority);
 		binder_free_transaction(in_reply_to);
+#if IS_ENABLED(CONFIG_PERF_HUMANASK)
+		if (thread->task && thread->task->inherit_task) {
+			thread->task->inherit_task = 0 ;
+			thread->task->human_task = 0;
+		}
+#endif
 	} else if (!(t->flags & TF_ONE_WAY)) {
 		BUG_ON(t->buffer->async_transaction != 0);
 		binder_inner_proc_lock(proc);
@@ -3265,9 +3301,9 @@ static void binder_transaction(struct binder_proc *proc,
 		t->need_reply = 1;
 		t->from_parent = thread->transaction_stack;
 		thread->transaction_stack = t;
-		//MIUI ADD:
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 		t->timesRecord = binder_clock();
-		//END
+#endif
 		binder_inner_proc_unlock(proc);
 		if (!binder_proc_transaction(t, target_proc, target_thread)) {
 			binder_inner_proc_lock(proc);
@@ -3279,9 +3315,9 @@ static void binder_transaction(struct binder_proc *proc,
 		BUG_ON(target_node == NULL);
 		BUG_ON(t->buffer->async_transaction != 1);
 		binder_enqueue_thread_work(thread, tcomplete);
-		//MIUI ADD:
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 		t->timesRecord = binder_clock();
-		//END
+#endif
 		if (!binder_proc_transaction(t, target_proc, NULL))
 			goto err_dead_proc_or_thread;
 	}
@@ -3892,7 +3928,7 @@ static int binder_wait_for_work(struct binder_thread *thread,
 {
 	DEFINE_WAIT(wait);
 	struct binder_proc *proc = thread->proc;
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 	struct binder_transaction *t;
 	struct binder_proc *target_proc;
 #endif
@@ -3904,7 +3940,7 @@ static int binder_wait_for_work(struct binder_thread *thread,
 		prepare_to_wait(&thread->wait, &wait, TASK_INTERRUPTIBLE);
 		if (binder_has_work_ilocked(thread, do_proc_work))
 			break;
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 		target_proc = NULL;
 		t = thread->transaction_stack;
 		if (t)
@@ -4524,10 +4560,10 @@ static int binder_thread_release(struct binder_proc *proc,
 			t = t->to_parent;
 		} else if (t->from == thread) {
 			t->from = NULL;
-			//MIUI ADD:
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 			t->async_from_pid = -1;
 			t->async_from_tid = -1;
-			//END
+#endif
 			t = t->from_parent;
 		} else
 			BUG();
@@ -4789,9 +4825,13 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case BINDER_WRITE_READ:
-		delayacct_binder_start();
+#if IS_ENABLED(CONFIG_TASK_DELAY_ACCT)
+			delayacct_binder_start();
+#endif
 		ret = binder_ioctl_write_read(filp, cmd, arg, thread);
-		delayacct_binder_end();
+#if IS_ENABLED(CONFIG_TASK_DELAY_ACCT)
+			delayacct_binder_end();
+#endif
 		if (ret)
 			goto err;
 		break;
@@ -4982,9 +5022,9 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	struct binder_device *binder_dev;
 	struct binderfs_info *info;
 	struct dentry *binder_binderfs_dir_entry_proc = NULL;
-	//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 	struct dentry *binder_binderfs_dir_entry_proc_transaction = NULL;
-	// END
+#endif
 
 	binder_debug(BINDER_DEBUG_OPEN_CLOSE, "%s: %d:%d\n", __func__,
 		     current->group_leader->pid, current->pid);
@@ -5022,9 +5062,9 @@ static int binder_open(struct inode *nodp, struct file *filp)
 		binder_dev = nodp->i_private;
 		info = nodp->i_sb->s_fs_info;
 		binder_binderfs_dir_entry_proc = info->proc_log_dir;
-		//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 		binder_binderfs_dir_entry_proc_transaction = info->proc_transaction_log_dir;
-		//END
+#endif
 	} else {
 		binder_dev = container_of(filp->private_data,
 					  struct binder_device, miscdev);
@@ -5089,7 +5129,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 		}
 	}
 
-	//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 	if (binder_debugfs_dir_entry_proc_transaction) {
 		char strbuf[11];
 		snprintf(strbuf, sizeof(strbuf), "%u", proc->pid);
@@ -5118,10 +5158,11 @@ static int binder_open(struct inode *nodp, struct file *filp)
 			}
 		}
 	}
+#endif
 	return 0;
 }
 
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 static enum BINDER_STAT query_binder_stats(struct binder_proc *proc)
 {
 	struct rb_node *n = NULL;
@@ -5305,13 +5346,13 @@ static int binder_release(struct inode *nodp, struct file *filp)
 	struct binder_proc *proc = filp->private_data;
 
 	debugfs_remove(proc->debugfs_entry);
-	//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 	debugfs_remove(proc->debugfs_transaction_entry);
 	if (proc->binderfs_transaction_entry) {
 		binderfs_remove_file(proc->binderfs_transaction_entry);
 		proc->binderfs_transaction_entry = NULL;
 	}
-	//END
+#endif
 
 	if (proc->binderfs_entry) {
 		binderfs_remove_file(proc->binderfs_entry);
@@ -6056,7 +6097,7 @@ int binder_transaction_log_show(struct seq_file *m, void *unused)
 	return 0;
 }
 
-//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 static void print_binder_proc_transaction_ilocked(
 				struct seq_file *m,
 				struct binder_proc *proc,
@@ -6227,7 +6268,8 @@ static int proc_transaction_show(struct seq_file *m, void *unused)
 
 	return 0;
 }
-//END
+#endif
+
 const struct file_operations binder_fops = {
 	.owner = THIS_MODULE,
 	.poll = binder_poll,
@@ -6287,10 +6329,10 @@ static int __init binder_init(void)
 	if (binder_debugfs_dir_entry_root) {
 		binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
 						 binder_debugfs_dir_entry_root);
-		//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 		binder_debugfs_dir_entry_proc_transaction = debugfs_create_dir("proc_transaction",
 						 binder_debugfs_dir_entry_root);
-		//END
+#endif
 	}
 
 	if (binder_debugfs_dir_entry_root) {
@@ -6341,7 +6383,7 @@ static int __init binder_init(void)
 		}
 	}
 
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 	register_millet_hook(BINDER_TYPE, NULL,
 			binder_sendmsg, binder_init_millet);
 	register_millet_hook(BINDER_ST_TYPE, binder_recv_hook,
@@ -6371,7 +6413,7 @@ err_alloc_device_names_failed:
 
 device_initcall(binder_init);
 
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 struct task_struct *binder_buff_owner(struct binder_alloc *alloc)
 {
 	struct binder_proc *proc = NULL;

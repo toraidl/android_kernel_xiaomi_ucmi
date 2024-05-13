@@ -415,9 +415,14 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= sched_boost_handler,
 		.extra1		= &neg_three,
+#if IS_ENABLED(CONFIG_MIHW)
 		.extra2		= &four,
+#else
+		.extra2		= &three,
+#endif
 	},
-        {
+#if IS_ENABLED(CONFIG_MIHW)
+	{
 		.procname	= "sched_boost_top_app",
 		.data		= &sysctl_sched_boost_top_app,
 		.maxlen		= sizeof(unsigned int),
@@ -426,6 +431,7 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &zero,
 		.extra2		= &one,
 	},
+#endif
 	{
 		.procname	= "sched_conservative_pl",
 		.data		= &sysctl_sched_conservative_pl,
@@ -641,6 +647,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
+#if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
 	{
 		.procname       = "sched_stask_to_big",
 		.data           = &sysctl_boost_stask_to_big,
@@ -648,6 +655,7 @@ static struct ctl_table kern_table[] = {
 		.mode           = 0644,
 		.proc_handler   = proc_dointvec,
 	},
+#endif
 	{
 		.procname	= "sched_wakeup_granularity_ns",
 		.data		= &sysctl_sched_wakeup_granularity,

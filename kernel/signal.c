@@ -45,7 +45,9 @@
 #include <linux/livepatch.h>
 #include <linux/oom.h>
 #include <linux/capability.h>
+#if IS_ENABLED(CONFIG_MILLET)
 #include <linux/millet.h>
+#endif
 #include <linux/cgroup.h>
 
 #define CREATE_TRACE_POINTS
@@ -1278,7 +1280,7 @@ int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 {
 	unsigned long flags;
 	int ret = -ESRCH;
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 	struct millet_data data;
 
 	if (sig == SIGKILL
@@ -4270,7 +4272,7 @@ __weak const char *arch_vma_name(struct vm_area_struct *vma)
 	return NULL;
 }
 
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 int last_report_task;
 
 static int signals_sendmsg(struct task_struct *tsk,
@@ -4314,7 +4316,7 @@ void __init signals_init(void)
 	BUILD_BUG_ON(sizeof(struct siginfo) != SI_MAX_SIZE);
 
 	sigqueue_cachep = KMEM_CACHE(sigqueue, SLAB_PANIC);
-#ifdef CONFIG_MILLET
+#if IS_ENABLED(CONFIG_MILLET)
 	register_millet_hook(SIG_TYPE, NULL,
 		signals_sendmsg, signas_init_millet);
 #endif

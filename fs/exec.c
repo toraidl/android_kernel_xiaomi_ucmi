@@ -73,6 +73,9 @@
 
 #include <trace/events/sched.h>
 
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
+#include <linux/sched.h>
+#endif
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);
@@ -1252,12 +1255,12 @@ EXPORT_SYMBOL_GPL(__get_task_comm);
 void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 {
 
-#ifdef CONFIG_PERF_HUMANTASK
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
 	struct task_struct *parent = find_task_by_vpid(tsk->tgid);
 	char *tmpbuf = kmalloc(128, GFP_KERNEL);
 #endif
 	task_lock(tsk);
-#ifdef CONFIG_PERF_HUMANTASK
+#if IS_ENABLED(CONFIG_PERF_HUMANTASK)
 	if( !strcmp(parent->comm, "system_server")){
 		if(!strcmp(buf, "InputDispatcher") ||!strcmp(buf, "InputReader") ){
 			tsk->human_task = MAX_LEVER+1 ;

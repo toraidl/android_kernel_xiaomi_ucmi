@@ -75,9 +75,9 @@ struct binderfs_info {
 	struct binderfs_mount_opts mount_opts;
 	int device_count;
 	struct dentry *proc_log_dir;
-	//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 	struct dentry *proc_transaction_log_dir;
-	//END
+#endif
 };
 
 extern const struct file_operations binder_fops;
@@ -397,12 +397,27 @@ struct binder_priority {
  * @files                 files_struct for process
  *                        (protected by @files_lock)
  * @files_lock            mutex to protect @files
+ * @cred                  struct cred associated with the `struct file`
+ *                        in binder_open()
+ *                        (invariant after initialized)
  * @deferred_work_node:   element for binder_deferred_list
  *                        (protected by binder_deferred_lock)
  * @deferred_work:        bitmap of deferred work to perform
  *                        (protected by binder_deferred_lock)
+ * @outstanding_txns:     number of transactions to be transmitted before
+ *                        processes in freeze_wait are woken up
+ *                        (protected by @inner_lock)
  * @is_dead:              process is dead and awaiting free
  *                        when outstanding transactions are cleaned up
+ *                        (protected by @inner_lock)
+ * @sync_recv:            process received sync transactions since last frozen
+ *                        bit 0: received sync transaction after being frozen
+ *                        bit 1: new pending sync transaction during freezing
+ *                        (protected by @inner_lock)
+ * @async_recv:           process received async transactions since last frozen
+ *                        (protected by @inner_lock)
+ * @freeze_wait:          waitqueue of processes waiting for all outstanding
+ *                        transactions to be processed
  *                        (protected by @inner_lock)
  * @todo:                 list of work for this process
  *                        (protected by @inner_lock)
@@ -446,9 +461,15 @@ struct binder_proc {
 	struct task_struct *tsk;
 	struct files_struct *files;
 	struct mutex files_lock;
+	const struct cred *cred;
 	struct hlist_node deferred_work_node;
 	int deferred_work;
+	int outstanding_txns;
 	bool is_dead;
+	bool is_frozen;
+	bool sync_recv;
+	bool async_recv;
+	wait_queue_head_t freeze_wait;
 
 	struct list_head todo;
 	struct binder_stats stats;
@@ -459,10 +480,10 @@ struct binder_proc {
 	int tmp_ref;
 	struct binder_priority default_priority;
 	struct dentry *debugfs_entry;
-	//MIUI ADD:
+#if IS_ENABLED(CONFIG_MIHW)
 	struct dentry *debugfs_transaction_entry;
 	struct dentry *binderfs_transaction_entry;
-	//END
+#endif
 	struct binder_alloc alloc;
 	struct binder_context *context;
 	spinlock_t inner_lock;
@@ -539,11 +560,11 @@ struct binder_transaction {
 	int debug_id;
 	struct binder_work work;
 	struct binder_thread *from;
-	//MIUI ADD:
+#if IS_ENABLED(CONFIG_BINDER_OPT)
 	int async_from_pid;
 	int async_from_tid;
 	u64 timesRecord;
-	//END
+#endif
 	struct binder_transaction *from_parent;
 	struct binder_proc *to_proc;
 	struct binder_thread *to_thread;
