@@ -20,8 +20,8 @@
 extern ssize_t xlogchar_kwrite(const char __user *buf, size_t count);
 
 void send_mbhc_impedance_to_xlog(const unsigned int zl, const unsigned int zr);
-int xlog_send_int(const unsigned int zl, const unsigned int zr);
-int xlog_format_msg_int (char *msg, const unsigned int zl, const unsigned int zr);
+int xlog_wcd938x_send_int(const unsigned int zl, const unsigned int zr);
+int xlog_wcd938x_format_msg_int(char *msg, const unsigned int zl, const unsigned int zr);
 
 #endif
 
