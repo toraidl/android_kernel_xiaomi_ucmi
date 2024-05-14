@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __Q6_INIT_H__
@@ -71,6 +70,7 @@ void afe_exit(void);
 void adm_exit(void);
 void adsp_err_exit(void);
 int elliptic_driver_exit(void);
+
 #if IS_ENABLED(CONFIG_WCD9XXX_CODEC_CORE)
 int audio_slimslave_init(void);
 void audio_slimslave_exit(void);
