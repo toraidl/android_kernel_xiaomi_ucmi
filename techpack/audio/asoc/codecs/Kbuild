@@ -77,19 +77,19 @@ ifeq ($(KERNEL_BUILD), 0)
 	endif
 endif
 
-ifeq ($(TARGET_PRODUCT), psyche)
+ifdef CONFIG_BOARD_PSYCHE
         CDEFINES += -DCONFIG_TARGET_PRODUCT_PSYCHE
 endif
 
-ifeq ($(TARGET_PRODUCT), munch)
+ifdef CONFIG_BOARD_MUNCH
         CDEFINES += -DCONFIG_TARGET_PRODUCT_MUNCH
 endif
 
-ifeq ($(TARGET_PRODUCT), dagu)
+ifdef CONFIG_BOARD_DAGU
         CDEFINES += -DCONFIG_TARGET_PRODUCT_DAGU
 endif
 
-ifeq ($(TARGET_PRODUCT), pipa)
+ifdef CONFIG_BOARD_PIPA
         CDEFINES += -DCONFIG_TARGET_PRODUCT_PIPA
 endif
 
@@ -247,18 +247,18 @@ ifeq ($(KERNEL_BUILD), 1)
 	obj-y	+= wcd937x/
 	obj-y	+= wcd938x/
 	obj-y	+= bolero/
-ifeq ($(TARGET_PRODUCT), $(filter $(TARGET_PRODUCT), enuma))
+ifneq ($(filter y, $(CONFIG_BOARD_ENUMA) $(CONFIG_BOARD_ELISH) $(CONFIG_BOARD_DAGU)),)
 	obj-y	+= cs35l41_k81/
-else ifeq ($(TARGET_PRODUCT), $(filter $(TARGET_PRODUCT), elish))
-	obj-y	+= cs35l41_k81/
-else ifeq ($(TARGET_PRODUCT), $(filter $(TARGET_PRODUCT), dagu))
-	obj-y	+= cs35l41_k81/
-else ifeq ($(TARGET_PRODUCT), $(filter $(TARGET_PRODUCT), munch))
-	obj-y	+= tfa9874/
 else
 	obj-y	+= cs35l41/
 endif
+ifeq ($(CONFIG_BOARD_MUNCH),y)
+	obj-y	+= tfa9874/
+endif
+
+ifeq ($CONFIG_BOARD_PIPA),y)
 	obj-y	+= aw882xx/
+endif
 	obj-y	+= rouleur/
 	obj-y	+= wsa883x/
 	obj-y	+= sdm660_cdc/

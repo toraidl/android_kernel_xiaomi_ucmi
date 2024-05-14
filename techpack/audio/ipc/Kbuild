@@ -131,7 +131,7 @@ ifdef CONFIG_WCD_DSP_GLINK
 WDSP_GLINK += wcd-dsp-glink.o
 endif
 
-ifneq (,$(filter $(TARGET_PRODUCT), dagu pipa))
+ifneq (,$(filter y, $(CONFIG_BOARD_DAGU) $(CONFIG_BOARD_PIPA)))
 CDEFINES += -DCONFIG_MMHARDWARE_DETECTION
 endif
 

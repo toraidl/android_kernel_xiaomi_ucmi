@@ -80,8 +80,8 @@ ifdef CONFIG_SND_SOC_AW882XX
 	AW882XX_OBJS += src/aw882xx_spin.o
 endif
 
-ifneq (,$(filter $(TARGET_PRODUCT), pipa))
-CDEFINES += -DCONFIG_MMHARDWARE_DETECTION
+ifdef CONFIG_BOARD_PIPA
+	CDEFINES += -DCONFIG_MMHARDWARE_DETECTION
 endif
 
 LINUX_INC += -Iinclude/linux
@@ -103,7 +103,7 @@ CDEFINES +=	-DANI_LITTLE_BYTE_ENDIAN \
 		-D__linux__ \
 		-DDEBUG
 
-ifneq (,$(filter $(TARGET_PRODUCT), pipa))
+ifdef CONFIG_BOARD_PIPA
 	CDEFINES += -DCONFIG_TARGET_PRODUCT_PIPA
 endif
 
