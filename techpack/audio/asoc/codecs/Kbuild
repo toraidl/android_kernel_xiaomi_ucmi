@@ -254,6 +254,8 @@ else
 endif
 ifeq ($(CONFIG_BOARD_MUNCH),y)
 	obj-y	+= tfa9874/
+else
+	obj-y	+= tfa98xx/
 endif
 
 ifeq ($CONFIG_BOARD_PIPA),y)
