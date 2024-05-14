@@ -1365,6 +1365,7 @@ config INPUT_PRESS_NDT
 	help
 	  Say Y here if you have a press ic ndt.
 
+source "drivers/input/touchscreen/fts_521/Kconfig"
 config TOUCHSCREEN_HIMAX_CHIPSET
 	bool "Himax touchpanel CHIPSET"
 	depends on I2C
